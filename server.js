@@ -39,9 +39,20 @@ app.post("/categories", async (req,res)=>{
 
 // Getting all games informations and registering new ones
 app.get("/games", async (req,res)=>{
+    const searchName=req.query.name
     try{
-        const games = await connection.query(`SELECT name, image, "stockTotal", "categoryId","pricePerDay",(SELECT name FROM categories where id="categoryId") as "categoryName" FROM games`);
-        res.send(games.rows)
+        if(searchName){
+             const games = await connection.query(`SELECT games.*, categories.name as "categoryName" 
+             FROM games 
+             JOIN categories ON games."categoryId"=categories.id
+             where games.name ILIKE $1`,[searchName+'%'])
+             res.send(games.rows)
+        }else{
+            const games = await connection.query(`SELECT games.*, categories.name as "categoryName" 
+            FROM games 
+            JOIN categories ON games."categoryId"=categories.id`)
+            res.send(games.rows)
+        }
     }catch{
         res.sendStatus(400)
     }
