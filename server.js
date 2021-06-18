@@ -1,7 +1,7 @@
 import pg from "pg";
 import express from "express";
 import Joi from "joi";
-
+pg.types.setTypeParser(1082, (str) => str);
 const { Pool } = pg;
 
 const connection = new Pool({
@@ -95,6 +95,90 @@ app.post("/games", async (req,res)=>{
     }catch(err){
         console.log(err);
         res.sendStatus(400);
+    }
+})
+
+//Geting all customers infos, searching them by id, registering a new customer and updating informations
+app.get("/customers", async(req,res)=>{
+    const searchCpf=req.query.cpf;
+    try{
+        if(searchCpf){
+            const customers= await connection.query(`SELECT * FROM customers
+            WHERE cpf ILIKE $1`,[searchCpf+'%']);
+            res.send(customers.rows);
+        }else{
+            const customers= await connection.query(`SELECT * FROM customers`);
+            res.send(customers.rows);
+        }
+    }catch{
+        res.sendStatus(400);
+    }
+});
+
+app.get("/customers/:id", async(req,res)=>{
+    const id=req.params.id;
+    try{
+        const customer=await connection.query(`select * from customers where id=$1`,[id])
+        if(customer.rows.length>0){
+            res.send(customer.rows)
+        }else{
+            res.sendStatus(404)
+        }
+    }catch{
+        res.sendStatus(404)
+    }
+})
+
+app.post("/customers",async(req,res)=>{
+    const {name,phone,cpf,birthday}=req.body;
+    const schema=Joi.object({
+        name: Joi.string().required(),
+        phone: Joi.string().pattern(/^[0-9]{10,11}$/),
+        cpf: Joi.string().pattern(/^[0-9]{11}$/),
+    });
+    const {error}=schema.validate({name,phone,cpf});
+    if(error){
+        res.send(error);return
+    }
+
+    const cpfExist= await connection.query(`SELECT * FROM customers 
+    WHERE cpf=$1`,[cpf])
+    if(cpfExist.rows.length>0){
+        res.sendStatus(409); return
+    }
+    try{
+        const newCustomers= await connection.query(`INSERT INTO customers (name,phone,cpf,birthday) VALUES ($1,$2,$3,$4)`,[name,phone,cpf,birthday])
+        res.sendStatus(201)
+    }catch{
+        res.sendStatus(400)
+    }
+})
+
+app.put("/customers/:id", async(req,res)=>{
+    const {name,phone,cpf,birthday}=req.body;
+    const id=req.params.id;
+    const schema=Joi.object({
+        name: Joi.string().required(),
+        phone: Joi.string().pattern(/^[0-9]{10,11}$/),
+        cpf: Joi.string().pattern(/^[0-9]{11}$/),
+    });
+    const {error}=schema.validate({name,phone,cpf});
+    if(error){
+        res.send(error);return
+    }
+
+    const cpfExist= await connection.query(`SELECT * FROM customers 
+    WHERE cpf=$1`,[cpf])
+    if(cpfExist.rows.length>0 && cpfExist.rows[0].id!=id){
+        res.sendStatus(409); return
+    }
+    try{
+        const changes= await connection.query(`UPDATE customers 
+        SET name=$1,phone=$2,cpf=$3,birthday=$4
+        WHERE id=$5`,[name,phone,cpf,birthday,id]);
+        res.sendStatus(200);
+    }catch(err){
+        res.sendStatus(err);
     }
 })
 
