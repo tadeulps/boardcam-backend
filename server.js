@@ -197,6 +197,12 @@ app.post("/rentals",async(req,res)=>{
     const {customerId,gameId,daysRented}=req.body;
     const rentDate=dayjs().format('YYYY-MM-DD');
     try{
+        const customerExist=await connection.query(`SELECT * FROM customers WHERE id=$1`,[customerId]);
+        const gameExist=await connection.query(`SELECT * FROM games WHERE id=$1`,[gameId]);
+        const gamesRented= await connection.query(`SELECT * FROM rentals WHERE rentals."gameId"=$1`,[gameId]);
+        const stock=await connection.query(`SELECT "stockTotal" FROM games WHERE id=$1`,[gameId])
+        if(customerExist.rows.length===0 || gameExist.rows.length===0 || daysRented<1 || gamesRented.rows.length>=stock.rows[0].stockTotal){
+            res.sendStatus(400);return}
         const gameInfo= await connection.query(`SELECT "pricePerDay" from games where id=$1`,[gameId])
         const originalPrice=daysRented*gameInfo.rows[0].pricePerDay
         const newRental= await connection.query(`INSERT INTO rentals 
