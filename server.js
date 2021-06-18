@@ -229,7 +229,7 @@ app.post("/rentals",async(req,res)=>{
     try{
         const customerExist=await connection.query(`SELECT * FROM customers WHERE id=$1`,[customerId]);
         const gameExist=await connection.query(`SELECT * FROM games WHERE id=$1`,[gameId]);
-        const gamesRented= await connection.query(`SELECT * FROM rentals WHERE rentals."gameId"=$1`,[gameId]);
+        const gamesRented= await connection.query(`SELECT * FROM rentals WHERE rentals."gameId"=$1 AND rentals."returnDate" IS null`,[gameId]);
         const stock=await connection.query(`SELECT "stockTotal" FROM games WHERE id=$1`,[gameId])
         if(customerExist.rows.length===0 || gameExist.rows.length===0 || daysRented<1 || gamesRented.rows.length>=stock.rows[0].stockTotal){
             res.sendStatus(400);return}
@@ -245,15 +245,23 @@ app.post("/rentals",async(req,res)=>{
     }
 });
 app.post("/rentals/:id/return",async(req,res)=>{
+    const id=req.params.id;
+    const returnDate=dayjs().format('YYYY-MM-DD')
     try{
-
-    }catch{
-
+        const rentDateRaw=await connection.query(`SELECT * FROM rentals where id=$1`,[id]);
+        const rentDate=dayjs(rentDateRaw.rows[0].rentDate)
+        const daysDifference=dayjs().diff(rentDate, 'day')
+        const delayFee=(daysDifference-rentDateRaw.rows[0].daysRented)*(rentDateRaw.rows[0].originalPrice/rentDateRaw.rows[0].daysRented)
+        const changeDate=await connection.query(`UPDATE rentals SET "returnDate"=$1,"delayFee"=$2 
+        WHERE id=$3`,[returnDate,delayFee>0?delayFee:0,id])
+        res.sendStatus(200)
+    }catch(err){
+        res.sendStatus(400)
     }
 })
 
 app.delete("/rentals/:id",async(req,res)=>{
-    const id=req.params.id
+    const id=req.params.id;
     try{
         const rentalExist=await connection.query(`SELECT * FROM rentals WHERE id=$1`,[id]);
         if(rentalExist.rows.length===0){
