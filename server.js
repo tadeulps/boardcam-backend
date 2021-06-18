@@ -1,6 +1,6 @@
 import pg from "pg";
 import express from "express";
-import joi from "joi";
+import Joi from "joi";
 
 const { Pool } = pg;
 
@@ -28,6 +28,17 @@ app.get("/categories", async (req,res)=>{
 
 app.post("/categories", async (req,res)=>{
     const categoryName= req.body.name;
+    const schema = Joi.object({
+        name: Joi.string().required()
+    });
+    const {error}=schema.validate(req.body);
+    if(error){
+        res.sendStatus(400); return
+    }
+    
+    const alreadyIn=await connection.query(`SELECT * FROM categories WHERE name=$1`,[categoryName])
+    if(alreadyIn.rows.length>0){res.sendStatus(409); return}
+
     try{
         const NewCategory= await connection.query('INSERT INTO categories (name) values ($1)',[categoryName])
         res.sendStatus(201)
@@ -60,6 +71,23 @@ app.get("/games", async (req,res)=>{
 
 app.post("/games", async (req,res)=>{
     const {name, image, stockTotal, categoryId,pricePerDay}= req.body;
+     const schema = Joi.object({
+         name: Joi.string().required(),
+         stockTotal: Joi.number().min(1),
+         pricePerDay: Joi.number().min(1),
+     });
+     const {error}=schema.validate({name,stockTotal,pricePerDay});
+     if(error){
+         res.send(400); return
+     }
+    const categoryExist= await connection.query(`SELECT * FROM categories WHERE id=$1`,[categoryId]);
+    if(categoryExist.rows.length===0){
+        res.sendStatus(400); return
+    }
+    const gameExist= await connection.query(`SELECT * FROM games WHERE name=$1`,[name]);
+    if(gameExist.rows.length>0){
+        res.sendStatus(409); return
+    }
 
     try{
         const NewGame= await connection.query('INSERT INTO games (name, image, "stockTotal", "categoryId","pricePerDay") values ($1,$2,$3,$4,$5)',[name, image, stockTotal, categoryId,pricePerDay])
