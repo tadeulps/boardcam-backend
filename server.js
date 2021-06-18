@@ -185,9 +185,39 @@ app.put("/customers/:id", async(req,res)=>{
 })
 // All rentals, registering, updating and deleting
 app.get("/rentals",async(req,res)=>{
+    const customerId=req.query.customerId
+    const gameId=req.query.gameId
     try{
-        const rentals=await connection.query(`SELECT * FROM rentals`)
+        if(customerId){
+            const rentals=await connection.query(`SELECT rentals.*, 
+        jsonb_build_object('name', customers.name, 'id', customers.id) AS customer,
+        jsonb_build_object('id', games.id, 'name', games.name, 'categoryId', games."categoryId", 'categoryName', categories.name) AS game
+        FROM rentals 
+        JOIN customers ON rentals."customerId" = customers.id
+        JOIN games ON rentals."gameId" = games.id
+        JOIN categories ON categories.id = games."categoryId"
+        WHERE rentals."customerId"=$1`,[customerId])
         res.send(rentals.rows);
+        }else if(gameId){
+            const rentals=await connection.query(`SELECT rentals.*, 
+        jsonb_build_object('name', customers.name, 'id', customers.id) AS customer,
+        jsonb_build_object('id', games.id, 'name', games.name, 'categoryId', games."categoryId", 'categoryName', categories.name) AS game
+        FROM rentals 
+        JOIN customers ON rentals."customerId" = customers.id
+        JOIN games ON rentals."gameId" = games.id
+        JOIN categories ON categories.id = games."categoryId"
+        WHERE rentals."gameId"=$1`,[gameId])
+        res.send(rentals.rows);
+        }else{
+        const rentals=await connection.query(`SELECT rentals.*, 
+        jsonb_build_object('name', customers.name, 'id', customers.id) AS customer,
+        jsonb_build_object('id', games.id, 'name', games.name, 'categoryId', games."categoryId", 'categoryName', categories.name) AS game
+        FROM rentals 
+        JOIN customers ON rentals."customerId" = customers.id
+        JOIN games ON rentals."gameId" = games.id
+        JOIN categories ON categories.id = games."categoryId"`)
+        res.send(rentals.rows);}
+        
     }catch{
         res.sendStatus(400);
     }
@@ -211,11 +241,30 @@ app.post("/rentals",async(req,res)=>{
         [customerId,gameId,rentDate,daysRented,null,originalPrice,null])
         res.sendStatus(200)
     }catch(err){
-        res.send(err)
+        res.sendStatus(400)
     }
 });
+app.post("/rentals/:id/return",async(req,res)=>{
+    try{
 
+    }catch{
 
+    }
+})
+
+app.delete("/rentals/:id",async(req,res)=>{
+    const id=req.params.id
+    try{
+        const rentalExist=await connection.query(`SELECT * FROM rentals WHERE id=$1`,[id]);
+        if(rentalExist.rows.length===0){
+            res.sendStatus(404);return
+        }
+        const deleting=await connection.query(`DELETE FROM rentals WHERE id=$1`,[id]);
+        res.sendStatus(200)
+    }catch{
+        res.sendStatus(400)
+    }
+})
 
 app.listen(4000, () => {
     console.log('Server listening on port 4000.');
